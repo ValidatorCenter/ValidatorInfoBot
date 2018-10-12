@@ -1,0 +1,26 @@
+# copy to /etc/systemd/system/
+# sudo systemctl enable tbot
+# sudo systemctl start tbot
+
+[Unit]
+Description=Minter Validator Info
+After=syslog.target
+After=network.target
+
+[Service]
+Type=simple
+PIDFile=/opt/tbot/service.pid
+User=root
+Group=root
+WorkingDirectory=/opt/tbot
+ExecStart=/opt/tbot/tbotd /opt/tbot/cmc0.ini &
+SyslogIdentifier=telegrambot
+StandardOutput=syslog
+StandardError=syslog
+OOMScoreAdjust=-100
+TimeoutSec=10
+Restart=always
+LimitNOFILE=16384
+
+[Install]
+WantedBy=multi-user.target
