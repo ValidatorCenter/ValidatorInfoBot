@@ -26,10 +26,11 @@ package main
 
 import (
 	"encoding/json"
+	/*"encoding/json"
 	"errors"
-	"fmt"
 	"io/ioutil"
-	"net/http"
+	"net/http"*/
+	"fmt"
 	"os"
 	"strconv"
 	"strings"
@@ -40,7 +41,8 @@ import (
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 
-	// для транзакций от Минтер
+	m "github.com/ValidatorCenter/minter-go-sdk"
+	/*// для транзакций от Минтер
 	tr "github.com/MinterTeam/minter-go-node/core/transaction"
 	"github.com/MinterTeam/minter-go-node/core/types"
 	"github.com/MinterTeam/minter-go-node/crypto"
@@ -48,20 +50,19 @@ import (
 
 	// для транзакций старндартные
 	"bytes"
-	"encoding/hex"
-)
+	"encoding/hex"*/)
 
 // пока данные будем хранить в памяти
 var (
-	CoinMinter      string // Основная монета Minter
-	allValid        []candidate_info
-	allUser         []usrData
-	MnAddress       string // MasterNode
-	MnAddressReserv string // резервный
-	TgTokenAPI      string // Токен к API телеграма
-	TgTimeUpdate    int64  // Время в сек. обновления статуса
-	DBAddress       string // MongoDB
-	HelpMsg         = "Это простой мониторинг доступности мастерноды валидатора и краткая информация о ней.\n" +
+	CoinMinter string // Основная монета Minter
+	allValid   []candidate_info
+	allUser    []usrData
+	MnAddress  string // MasterNode
+	//MnAddressReserv string // резервный
+	TgTokenAPI   string // Токен к API телеграма
+	TgTimeUpdate int64  // Время в сек. обновления статуса
+	DBAddress    string // MongoDB
+	HelpMsg      = "Это простой мониторинг доступности мастерноды валидатора и краткая информация о ней.\n" +
 		"Список доступных комманд:\n" +
 		"/node_info - информация о мастерноде привязанной к пользователю\n" +
 		"/node_info [часть-pubkey] - информация о мастернодах найденных по части указанного ключа\n" +
@@ -83,39 +84,6 @@ type usrData struct {
 	PubKey       string `bson:"pub_key"`
 	PrivKey      string `bson:"priv_key"`
 	Notification bool   `bson:"notification"`
-}
-
-// Ответ от запроса о количестве транзакций
-type count_transaction struct {
-	Code   int                `json:"code"`
-	Result TransCountResponse `json:"result"`
-}
-type TransCountResponse struct {
-	Count int `json:"count"`
-}
-
-// Ответ транзакции
-type send_transaction struct {
-	Code   int               `json:"code"`
-	Result TransSendResponse `json:"result"`
-	Log    string            `json:"log"`
-}
-type TransSendResponse struct {
-	Hash string `json:"hash"`
-}
-
-// запрос по валидаторам
-type node_validators struct {
-	Code   int
-	Result []result_valid
-}
-
-// результат по валидаторам
-type result_valid struct {
-	AccumulatedReward   string `json:"accumulated_reward"`
-	AccumulatedReward32 float32
-	AbsentTimes         int `json:"absent_times"`
-	Candidate           candidate_info
 }
 
 // структура кандидата/валидатора
@@ -278,30 +246,27 @@ func editNodeNotif(session *mgo.Session, ChatID int64) string {
 
 // Возвращает список валидаторов в память
 func ReturnValid() {
-	url := fmt.Sprintf("%s/api/validators", MnAddress)
-	res, err := http.Get(url)
-	if err != nil {
-		url = fmt.Sprintf("%s/api/validators", MnAddressReserv)
-		res, err = http.Get(url)
-		if err != nil {
-			panic(err.Error())
-		}
+	sdk := m.SDK{
+		MnAddress: MnAddress,
 	}
-	defer res.Body.Close()
+	vldr := sdk.GetValidators()
 
-	body, err := ioutil.ReadAll(res.Body)
+	// FIXME: не красивое решение+++
+	body, err := json.Marshal(vldr)
 	if err != nil {
-		panic(err.Error())
+		fmt.Println(err.Error())
+		return
 	}
+	var data []candidate_info
+	json.Unmarshal(body, &data)
+	//---
 
 	// очищаем
 	allValid = allValid[:0]
 
-	var data node_validators
-	json.Unmarshal(body, &data)
-	for _, oneNode := range data.Result {
-		oneNode.Candidate.TotalStake32 = cnvStr2Float_18(oneNode.Candidate.TotalStake)
-		allValid = append(allValid, oneNode.Candidate)
+	for _, oneNode := range data {
+		oneNode.TotalStake32 = cnvStr2Float_18(oneNode.TotalStake)
+		allValid = append(allValid, oneNode)
 	}
 }
 
@@ -354,96 +319,27 @@ func getStatusValid(pubKey string) bool {
 	return false
 }
 
-// Возвращает количество исходящих транзакций с данной учетной записи. Это нужно использовать для расчета nonce для новой транзакции.
-func getNonce(txAddress string) int {
-	url := fmt.Sprintf("%s/api/transactionCount/%s", MnAddress, txAddress)
-	res, err := http.Get(url)
-	if err != nil {
-		panic(err.Error())
-	}
-	defer res.Body.Close()
-
-	body, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		panic(err.Error())
-	}
-
-	var data count_transaction
-	json.Unmarshal(body, &data)
-
-	return data.Result.Count
-}
-
 // Функция транзакции вкл/откл мастерноды
 func SetCandidateTransaction(usrAddr string, keyString string, pubKeyMN string, status bool) (string, error) {
-	privKey, err := crypto.HexToECDSA(keyString)
+	sdk := m.SDK{
+		MnAddress:     MnAddress,
+		AccAddress:    usrAddr,
+		AccPrivateKey: keyString,
+	}
+
+	sndDt := m.TxSetCandidateData{
+		PubKey:   pubKeyMN,
+		Activate: status, //true-"on", false-"off"
+		GasCoin:  "MNT",
+		GasPrice: 1,
+	}
+
+	resHash, err := sdk.TxSetCandidate(&sndDt)
 	if err != nil {
-		fmt.Println("ERROR: SetCandidateTransaction::crypto.HexToECDSA")
 		return "", err
 	}
 
-	var csMNTCoin types.CoinSymbol
-	copy(csMNTCoin[:], []byte(CoinMinter))
-
-	trn := tr.Transaction{}
-	btPubKey := types.Hex2Bytes(strings.TrimLeft(pubKeyMN, "Mp")) // Убираем префикс и переводим в байты
-	if status == true {
-		trn.Type = tr.TypeSetCandidateOnline // Включение мастерноды
-		trn.Data, _ = rlp.EncodeToBytes(tr.SetCandidateOnData{PubKey: btPubKey})
-	} else {
-		trn.Type = tr.TypeSetCandidateOffline // Выключение мастерноды
-		trn.Data, _ = rlp.EncodeToBytes(tr.SetCandidateOffData{PubKey: btPubKey})
-	}
-	trn.Nonce = uint64(getNonce(usrAddr) + 1)
-	trn.GasCoin = csMNTCoin
-
-	fmt.Printf("INFO:: PK=%s\n TX=%#v\n", pubKeyMN, trn)
-
-	err = trn.Sign(privKey)
-	if err != nil {
-		fmt.Println("ERROR: SetCandidateTransaction::trn.Sign")
-		return "", err
-	}
-
-	bts, err := trn.Serialize()
-	if err != nil {
-		fmt.Println("ERROR: SetCandidateTransaction::trn.Serialize")
-		return "", err
-	}
-	str := hex.EncodeToString(bts)
-
-	message := map[string]interface{}{
-		"transaction": str,
-	}
-	bytesRepresentation, err := json.Marshal(message)
-	if err != nil {
-		fmt.Println("ERROR: SetCandidateTransaction::json.Marshal")
-		return "", err
-	}
-
-	url := fmt.Sprintf("%s/api/sendTransaction", MnAddress)
-	res, err := http.Post(url, "application/json", bytes.NewBuffer(bytesRepresentation))
-	if err != nil {
-		fmt.Println("ERROR: SetCandidateTransaction::http.Post")
-		return "", err
-	}
-	defer res.Body.Close()
-
-	body, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		fmt.Println("ERROR: SetCandidateTransaction::ioutil.ReadAll")
-		return "", err
-	}
-
-	var data send_transaction
-	json.Unmarshal(body, &data)
-
-	if data.Code == 0 {
-		return data.Result.Hash, nil
-	} else {
-		fmt.Printf("ERROR: SetCandidateTransaction: %#v\n", data)
-		return data.Log, errors.New(fmt.Sprintf("Err:%d", data.Code))
-	}
+	return resHash, nil
 }
 
 // Сам мониторинг! как горутина!
@@ -486,7 +382,7 @@ func main() {
 	}
 	secMN := cfg.Section("masternode")
 	MnAddress = secMN.Key("ADDRESS").String()
-	MnAddressReserv = secMN.Key("ADDRESS_2").String()
+	//MnAddressReserv = secMN.Key("ADDRESS_2").String()
 	secDB := cfg.Section("database")
 	DBAddress = secDB.Key("ADDRESS").String()
 	netMN := cfg.Section("network")
@@ -693,8 +589,8 @@ func main() {
 
 		//FIXME: вспомогательная команда - для теста
 		/*case "cleandb":
-			cleanDB(session)
-			reply = "База очищена"*/
+		cleanDB(session)
+		reply = "База очищена"*/
 		// вкл/откл мастерноду
 		case "candidate":
 			oUsr := getUser(update.Message.Chat.ID)
