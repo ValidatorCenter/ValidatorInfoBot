@@ -26,10 +26,6 @@ package main
 
 import (
 	"encoding/json"
-	/*"encoding/json"
-	"errors"
-	"io/ioutil"
-	"net/http"*/
 	"fmt"
 	"os"
 	"strconv"
@@ -42,15 +38,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 
 	m "github.com/ValidatorCenter/minter-go-sdk"
-	/*// для транзакций от Минтер
-	tr "github.com/MinterTeam/minter-go-node/core/transaction"
-	"github.com/MinterTeam/minter-go-node/core/types"
-	"github.com/MinterTeam/minter-go-node/crypto"
-	"github.com/MinterTeam/minter-go-node/rlp"
-
-	// для транзакций старндартные
-	"bytes"
-	"encoding/hex"*/)
+)
 
 // пока данные будем хранить в памяти
 var (
@@ -330,12 +318,16 @@ func SetCandidateTransaction(usrAddr string, keyString string, pubKeyMN string, 
 	sndDt := m.TxSetCandidateData{
 		PubKey:   pubKeyMN,
 		Activate: status, //true-"on", false-"off"
-		GasCoin:  "MNT",
+		GasCoin:  CoinMinter,
 		GasPrice: 1,
 	}
 
 	resHash, err := sdk.TxSetCandidate(&sndDt)
 	if err != nil {
+		fmt.Println("MnAddress", MnAddress)
+		fmt.Println("usrAddr", usrAddr)
+		fmt.Println("keyString", keyString)
+		fmt.Println("pubKeyMN", pubKeyMN)
 		return "", err
 	}
 
