@@ -6,7 +6,7 @@
 
 ## Сборка из исходников
 ```bash
-go get github.com/go-telegram-bot-api/telegram-bot-api gopkg.in/ini.v1 gopkg.in/mgo.v2 gopkg.in/mgo.v2/bson github.com/MinterTeam/minter-go-node/core/transaction github.com/MinterTeam/minter-go-node/core/types github.com/MinterTeam/minter-go-node/crypto github.com/MinterTeam/minter-go-node/rlp
+go get github.com/go-telegram-bot-api/telegram-bot-api gopkg.in/ini.v1 gopkg.in/mgo.v2 gopkg.in/mgo.v2/bson github.com/ValidatorCenter/minter-go-sdk
 go build -o tbotd telegram_bot.go
 ```
 
