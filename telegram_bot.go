@@ -324,10 +324,6 @@ func SetCandidateTransaction(usrAddr string, keyString string, pubKeyMN string, 
 
 	resHash, err := sdk.TxSetCandidate(&sndDt)
 	if err != nil {
-		fmt.Println("MnAddress", MnAddress)
-		fmt.Println("usrAddr", usrAddr)
-		fmt.Println("keyString", keyString)
-		fmt.Println("pubKeyMN", pubKeyMN)
 		return "", err
 	}
 
