@@ -84,7 +84,6 @@ type candidate_info struct {
 	CreatedAtBlock   int           `json:"created_at_block" bson:"created_at_block"`
 	StatusInt        int           `json:"status" bson:"status"` // числовое значение статуса: 1 - Offline, 2 - Online
 	Stakes           []stakes_info `json:"stakes" bson:"stakes"`
-	TimeUpdate       time.Time     `bson:"time_update"` // UPDATE дата последнего обновления
 }
 
 // стэк делегатов
@@ -234,27 +233,27 @@ func editNodeNotif(session *mgo.Session, ChatID int64) string {
 
 // Возвращает список валидаторов в память
 func ReturnValid() {
+	// очищаем
+	allValid = allValid[:0]
+
 	sdk := m.SDK{
 		MnAddress: MnAddress,
 	}
 	vldr := sdk.GetValidators()
+	for _, oneNode := range vldr {
+		cnd := oneNode.Candidate
+		// FIXME: не красивое решение+++
+		body, err := json.Marshal(cnd)
+		if err != nil {
+			fmt.Println(err.Error())
+			return
+		}
+		var data candidate_info
+		json.Unmarshal(body, &data)
+		//---
+		data.TotalStake32 = cnvStr2Float_18(data.TotalStake)
 
-	// FIXME: не красивое решение+++
-	body, err := json.Marshal(vldr)
-	if err != nil {
-		fmt.Println(err.Error())
-		return
-	}
-	var data []candidate_info
-	json.Unmarshal(body, &data)
-	//---
-
-	// очищаем
-	allValid = allValid[:0]
-
-	for _, oneNode := range data {
-		oneNode.TotalStake32 = cnvStr2Float_18(oneNode.TotalStake)
-		allValid = append(allValid, oneNode)
+		allValid = append(allValid, data)
 	}
 }
 
