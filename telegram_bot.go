@@ -85,8 +85,9 @@ type candidate_info struct {
 	//Stakes           []stakes_info `json:"stakes" bson:"stakes"`
 }
 
+/*
 // стэк делегатов
-/*type stakes_info struct {
+type stakes_info struct {
 	Owner      string  `json:"owner" bson:"owner"`
 	Coin       string  `json:"coin" bson:"coin"`
 	Value      string  `json:"value" bson:"value"`
@@ -235,7 +236,7 @@ func ReturnValid() {
 		return
 	}
 	for _, oneNode := range vldr {
-		cnd := oneNode.Candidate
+		cnd := oneNode
 		// FIXME: не красивое решение+++
 		body, err := json.Marshal(cnd)
 		if err != nil {
@@ -245,7 +246,7 @@ func ReturnValid() {
 		var data candidate_info
 		json.Unmarshal(body, &data)
 
-		fmt.Fprintf("%#v\n", data) // TODO: скрыть
+		//fmt.Printf("%#v\n", data) // TODO: скрыть
 
 		allValid = append(allValid, data)
 	}
