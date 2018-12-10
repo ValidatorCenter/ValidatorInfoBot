@@ -239,7 +239,11 @@ func ReturnValid() {
 	sdk := m.SDK{
 		MnAddress: MnAddress,
 	}
-	vldr := sdk.GetValidators()
+	vldr, err := sdk.GetValidators()
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
 	for _, oneNode := range vldr {
 		cnd := oneNode.Candidate
 		// FIXME: не красивое решение+++
