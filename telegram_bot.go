@@ -230,6 +230,7 @@ func ReturnValid() {
 	sdk := m.SDK{
 		MnAddress: MnAddress,
 	}
+
 	vldr, err := sdk.GetValidators()
 	if err != nil {
 		fmt.Println(err.Error())
@@ -241,7 +242,6 @@ func ReturnValid() {
 			fmt.Println(err.Error())
 			return
 		}
-
 		// FIXME: не красивое решение+++
 		body, err := json.Marshal(cnd)
 		if err != nil {
@@ -251,11 +251,10 @@ func ReturnValid() {
 		var data candidate_info
 		json.Unmarshal(body, &data)
 
-		fmt.Printf("CND::%#v\n", cnd)   // TODO: скрыть
+    fmt.Printf("CND::%#v\n", cnd)   // TODO: скрыть
 		fmt.Printf("DATA::%#v\n", data) // TODO: скрыть
 
 		allValid = append(allValid, data)
-
 	}
 }
 
