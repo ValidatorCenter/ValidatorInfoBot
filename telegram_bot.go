@@ -69,7 +69,7 @@ type usrData struct {
 	ChatID       int64  `bson:"chat_id"`
 	UserName     string `bson:"user_name"`
 	UserAddress  string `bson:"user_address"`
-	PubKey       string `bson:"pub_key"`
+	PubKey       string `bson:"pubkey"`
 	PrivKey      string `bson:"priv_key"`
 	Notification bool   `bson:"notification"`
 }
@@ -78,9 +78,9 @@ type usrData struct {
 type candidate_info struct {
 	CandidateAddress string  `json:"candidate_address" bson:"candidate_address" gorm:"candidate_address"`
 	TotalStake       float32 `json:"total_stake_f32" bson:"total_stake_f32" gorm:"total_stake_f32"`
-	PubKey           string  `json:"pub_key" bson:"pub_key" gorm:"pub_key"`
-	Commission       int     `json:"commission" bson:"commission" gorm:"commission"`
-	CreatedAtBlock   int     `json:"created_at_block" bson:"created_at_block" gorm:"created_at_block"`
+	PubKey           string  `json:"pubkey" bson:"pubkey" gorm:"pubkey"`
+	Commission       int     `json:"commission_i32" bson:"commission_i32" gorm:"commission_i32"`
+	CreatedAtBlock   int     `json:"created_at_block_i32" bson:"created_at_block_i32" gorm:"created_at_block_i32"`
 	StatusInt        int     `json:"status" bson:"status" gorm:"status"` // числовое значение статуса: 1 - Offline, 2 - Online
 	//Stakes           []stakes_info `json:"stakes" bson:"stakes" gorm:"stakes"` // Только у: Candidate(по PubKey)
 }
@@ -251,8 +251,8 @@ func ReturnValid() {
 		var data candidate_info
 		json.Unmarshal(body, &data)
 
-		fmt.Printf("%#v\n", cnd)  // TODO: скрыть
-		fmt.Printf("%#v\n", data) // TODO: скрыть
+		fmt.Printf("CND::%#v\n", cnd)   // TODO: скрыть
+		fmt.Printf("DATA::%#v\n", data) // TODO: скрыть
 
 		allValid = append(allValid, data)
 
