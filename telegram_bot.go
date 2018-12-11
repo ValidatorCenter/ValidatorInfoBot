@@ -235,8 +235,13 @@ func ReturnValid() {
 		fmt.Println(err.Error())
 		return
 	}
-	for _, oneNode := range vldr {
-		cnd := oneNode
+	for _, onePubKey := range vldr {
+		cnd, err := sdk.GetCandidate(onePubKey.PubKey)
+		if err != nil {
+			fmt.Println(err.Error())
+			return
+		}
+
 		// FIXME: не красивое решение+++
 		body, err := json.Marshal(cnd)
 		if err != nil {
@@ -246,10 +251,11 @@ func ReturnValid() {
 		var data candidate_info
 		json.Unmarshal(body, &data)
 
-		fmt.Printf("%#v\n", oneNode) // TODO: скрыть
-		fmt.Printf("%#v\n", data)    // TODO: скрыть
+		fmt.Printf("%#v\n", cnd)  // TODO: скрыть
+		fmt.Printf("%#v\n", data) // TODO: скрыть
 
 		allValid = append(allValid, data)
+
 	}
 }
 
