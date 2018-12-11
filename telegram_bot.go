@@ -69,23 +69,23 @@ type usrData struct {
 	ChatID       int64  `bson:"chat_id"`
 	UserName     string `bson:"user_name"`
 	UserAddress  string `bson:"user_address"`
-	PubKey       string `bson:"pub_key"`
+	PubKey       string `bson:"pubkey"`
 	PrivKey      string `bson:"priv_key"`
 	Notification bool   `bson:"notification"`
 }
 
 // структура кандидата/валидатора
 type candidate_info struct {
-	CandidateAddress string        `json:"candidate_address" bson:"candidate_address"`
-	TotalStake       string        `json:"total_stake" bson:"total_stake"`
-	TotalStake32     float32       `bson:"total_stake32"`
-	PubKey           string        `json:"pub_key" bson:"pub_key"`
-	Commission       int           `json:"commission" bson:"commission"`
-	CreatedAtBlock   int           `json:"created_at_block" bson:"created_at_block"`
-	StatusInt        int           `json:"status" bson:"status"` // числовое значение статуса: 1 - Offline, 2 - Online
-	Stakes           []stakes_info `json:"stakes" bson:"stakes"`
+	CandidateAddress string  `json:"candidate_address" bson:"candidate_address" gorm:"candidate_address"`
+	TotalStake       float32 `json:"total_stake_f32" bson:"total_stake_f32" gorm:"total_stake_f32"`
+	PubKey           string  `json:"pubkey" bson:"pubkey" gorm:"pubkey"`
+	Commission       int     `json:"commission_i32" bson:"commission_i32" gorm:"commission_i32"`
+	CreatedAtBlock   int     `json:"created_at_block_i32" bson:"created_at_block_i32" gorm:"created_at_block_i32"`
+	StatusInt        int     `json:"status" bson:"status" gorm:"status"` // числовое значение статуса: 1 - Offline, 2 - Online
+	//Stakes           []stakes_info `json:"stakes" bson:"stakes" gorm:"stakes"` // Только у: Candidate(по PubKey)
 }
 
+/*
 // стэк делегатов
 type stakes_info struct {
 	Owner      string  `json:"owner" bson:"owner"`
@@ -94,20 +94,7 @@ type stakes_info struct {
 	BipValue   string  `json:"bip_value" bson:"bip_value"`
 	Value32    float32 `bson:"value32"`
 	BipValue32 float32 `bson:"bip_value32"`
-}
-
-// Перевод из строки в число с запятой
-func cnvStr2Float_18(amntTokenStr string) float32 {
-	var fAmntToken float32 = 0.0
-	if amntTokenStr != "" {
-		fAmntToken64, err := strconv.ParseFloat(amntTokenStr, 64)
-		if err != nil {
-			panic(err.Error())
-		}
-		fAmntToken = float32(fAmntToken64 / 1000000000000000000)
-	}
-	return fAmntToken
-}
+}*/
 
 // Статус мастерноды
 func getNodeStatusString(statInt int) string {
@@ -120,7 +107,11 @@ func getNodeStatusString(statInt int) string {
 
 // Сокращение строки
 func getMinString(bigStr string) string {
-	return fmt.Sprintf("%s...%s", bigStr[:6], bigStr[len(bigStr)-4:len(bigStr)])
+	if len(bigStr) > 8 {
+		return fmt.Sprintf("%s...%s", bigStr[:6], bigStr[len(bigStr)-4:len(bigStr)])
+	} else {
+		return bigStr
+	}
 }
 
 // Загрузка пользователей из БД в память
@@ -239,9 +230,18 @@ func ReturnValid() {
 	sdk := m.SDK{
 		MnAddress: MnAddress,
 	}
-	vldr := sdk.GetValidators()
-	for _, oneNode := range vldr {
-		cnd := oneNode.Candidate
+
+	vldr, err := sdk.GetValidators()
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+	for _, onePubKey := range vldr {
+		cnd, err := sdk.GetCandidate(onePubKey.PubKey)
+		if err != nil {
+			fmt.Println(err.Error())
+			return
+		}
 		// FIXME: не красивое решение+++
 		body, err := json.Marshal(cnd)
 		if err != nil {
@@ -250,8 +250,9 @@ func ReturnValid() {
 		}
 		var data candidate_info
 		json.Unmarshal(body, &data)
-		//---
-		data.TotalStake32 = cnvStr2Float_18(data.TotalStake)
+
+    fmt.Printf("CND::%#v\n", cnd)   // TODO: скрыть
+		fmt.Printf("DATA::%#v\n", data) // TODO: скрыть
 
 		allValid = append(allValid, data)
 	}
@@ -451,7 +452,14 @@ func main() {
 					if oUsr.Notification == true {
 						chekIt = "да"
 					}
-					reply = fmt.Sprintf("Ключ: %s\nАдрес: %s\nПрив.ключ: %s\nСтатус: %s\nКомиссия: %d%%\nСтэк: %f\nОповещение: %s", getMinString(oUsr.PubKey), getMinString(oUsr.UserAddress), getMinString(oUsr.PrivKey), getNodeStatusString(cndI.StatusInt), cndI.Commission, cndI.TotalStake32, chekIt)
+					reply = fmt.Sprintf("Ключ: %s\nАдрес: %s\nПрив.ключ: %s\nСтатус: %s\nКомиссия: %d%%\nСтэк: %f\nОповещение: %s",
+						getMinString(oUsr.PubKey),
+						getMinString(oUsr.UserAddress),
+						getMinString(oUsr.PrivKey),
+						getNodeStatusString(cndI.StatusInt),
+						cndI.Commission,
+						cndI.TotalStake,
+						chekIt)
 				} else {
 					if oUsr.ChatID == 0 {
 						reply = "Добавьте мастерноду для слежения, командой /node_add"
@@ -467,7 +475,12 @@ func main() {
 				bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, fmt.Sprintf("Найдено мастернод: %d", amntRes)))
 
 				for iN, oNd := range resSrch {
-					reply = fmt.Sprintf("= Мастернода %d ==========\nКлюч: %s\nСтатус: %s\nКомиссия: %d%%\nСтэк: %f", (iN + 1), oNd.PubKey, getNodeStatusString(oNd.StatusInt), oNd.Commission, oNd.TotalStake32)
+					reply = fmt.Sprintf("= Мастернода %d ==========\nКлюч: %s\nСтатус: %s\nКомиссия: %d%%\nСтэк: %f",
+						(iN + 1),
+						oNd.PubKey,
+						getNodeStatusString(oNd.StatusInt),
+						oNd.Commission,
+						oNd.TotalStake)
 					msg := tgbotapi.NewMessage(update.Message.Chat.ID, reply)
 
 					btnKeyboard := tgbotapi.NewInlineKeyboardMarkup(
